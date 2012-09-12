@@ -362,6 +362,8 @@ public class ContactsDatabaseHelper extends SQLiteOpenHelper {
         public static final String CONCRETE_STARRED = Tables.CONTACTS + "." + Contacts.STARRED;
         public static final String CONCRETE_CUSTOM_RINGTONE = Tables.CONTACTS + "."
                 + Contacts.CUSTOM_RINGTONE;
+        public static final String CONCRETE_CUSTOM_VIBRATION = Tables.CONTACTS + "."
+                + Contacts.CUSTOM_VIBRATION;
         public static final String CONCRETE_SEND_TO_VOICEMAIL = Tables.CONTACTS + "."
                 + Contacts.SEND_TO_VOICEMAIL;
         public static final String CONCRETE_LOOKUP_KEY = Tables.CONTACTS + "."
@@ -398,6 +400,8 @@ public class ContactsDatabaseHelper extends SQLiteOpenHelper {
                 Tables.RAW_CONTACTS + "." + RawContacts.SYNC4;
         public static final String CONCRETE_CUSTOM_RINGTONE =
                 Tables.RAW_CONTACTS + "." + RawContacts.CUSTOM_RINGTONE;
+        public static final String CONCRETE_CUSTOM_VIBRATION =
+                Tables.RAW_CONTACTS + "." + RawContacts.CUSTOM_VIBRATION;
         public static final String CONCRETE_SEND_TO_VOICEMAIL =
                 Tables.RAW_CONTACTS + "." + RawContacts.SEND_TO_VOICEMAIL;
         public static final String CONCRETE_LAST_TIME_CONTACTED =
@@ -969,7 +973,8 @@ public class ContactsDatabaseHelper extends SQLiteOpenHelper {
                 Contacts.HAS_PHONE_NUMBER + " INTEGER NOT NULL DEFAULT 0," +
                 Contacts.LOOKUP_KEY + " TEXT," +
                 ContactsColumns.LAST_STATUS_UPDATE_ID + " INTEGER REFERENCES data(_id)," +
-                Contacts.CONTACT_LAST_UPDATED_TIMESTAMP + " INTEGER" +
+                Contacts.CONTACT_LAST_UPDATED_TIMESTAMP + " INTEGER," +
+                Contacts.CUSTOM_VIBRATION + " TEXT" +
         ");");
 
         ContactsTableUtil.createIndexes(db);
@@ -1017,7 +1022,8 @@ public class ContactsDatabaseHelper extends SQLiteOpenHelper {
                 RawContacts.SYNC1 + " TEXT, " +
                 RawContacts.SYNC2 + " TEXT, " +
                 RawContacts.SYNC3 + " TEXT, " +
-                RawContacts.SYNC4 + " TEXT " +
+                RawContacts.SYNC4 + " TEXT, " +
+                RawContacts.CUSTOM_VIBRATION + " TEXT " +
         ");");
 
         db.execSQL("CREATE INDEX raw_contacts_contact_id_index ON " + Tables.RAW_CONTACTS + " (" +
@@ -1625,6 +1631,8 @@ public class ContactsDatabaseHelper extends SQLiteOpenHelper {
         String contactOptionColumns =
                 ContactsColumns.CONCRETE_CUSTOM_RINGTONE
                         + " AS " + RawContacts.CUSTOM_RINGTONE + ","
+                + ContactsColumns.CONCRETE_CUSTOM_VIBRATION
+                        + " AS " + RawContacts.CUSTOM_VIBRATION + ","
                 + ContactsColumns.CONCRETE_SEND_TO_VOICEMAIL
                         + " AS " + RawContacts.SEND_TO_VOICEMAIL + ","
                 + ContactsColumns.CONCRETE_LAST_TIME_CONTACTED
@@ -1696,6 +1704,7 @@ public class ContactsDatabaseHelper extends SQLiteOpenHelper {
 
         String rawContactOptionColumns =
                 RawContacts.CUSTOM_RINGTONE + ","
+                + RawContacts.CUSTOM_VIBRATION + ","
                 + RawContacts.SEND_TO_VOICEMAIL + ","
                 + RawContacts.LAST_TIME_CONTACTED + ","
                 + RawContacts.TIMES_CONTACTED + ","
@@ -1731,6 +1740,8 @@ public class ContactsDatabaseHelper extends SQLiteOpenHelper {
         String contactsColumns =
                 ContactsColumns.CONCRETE_CUSTOM_RINGTONE
                         + " AS " + Contacts.CUSTOM_RINGTONE + ", "
+                + ContactsColumns.CONCRETE_CUSTOM_VIBRATION
+                        + " AS " + Contacts.CUSTOM_VIBRATION + ", "
                 + contactNameColumns + ", "
                 + baseContactColumns + ", "
                 + ContactsColumns.CONCRETE_LAST_TIME_CONTACTED
@@ -2446,6 +2457,9 @@ public class ContactsDatabaseHelper extends SQLiteOpenHelper {
             // if the locale has changed after sync, the index contains gets stale.
             // To correct the issue we have to rebuild the index here.
             upgradeSearchIndex = true;
+            // *** Also add AOKP Custom Vibrations ***
+            upgradeToVersion705(db);
+            upgradeViewsAndTriggers = true;
             oldVersion = 705;
         }
 
@@ -3964,6 +3978,24 @@ public class ContactsDatabaseHelper extends SQLiteOpenHelper {
 
         db.execSQL("CREATE INDEX deleted_contacts_contact_deleted_timestamp_index "
                 + "ON deleted_contacts(contact_deleted_timestamp)");
+    }
+
+    /**
+     * AOKP - add custom vibration columns
+     */
+    private void upgradeToVersion705(SQLiteDatabase db) {
+        db.execSQL("ALTER TABLE contacts ADD custom_vibration TEXT DEFAULT NULL;");
+        db.execSQL("ALTER TABLE raw_contacts ADD custom_vibration TEXT DEFAULT NULL;");
+        
+        db.execSQL(
+                "UPDATE " + Tables.CONTACTS +
+                "   SET " + Contacts.CUSTOM_VIBRATION + "=NULL" +
+                " WHERE " + Contacts._ID + " NOT NULL");
+        
+        db.execSQL(
+                "UPDATE " + Tables.RAW_CONTACTS +
+                "   SET " + RawContacts.CUSTOM_VIBRATION + "=NULL" +
+                " WHERE " + RawContacts._ID + " NOT NULL");
     }
 
     public String extractHandleFromEmailAddress(String email) {
