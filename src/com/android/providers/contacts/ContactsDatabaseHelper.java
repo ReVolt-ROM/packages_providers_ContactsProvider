@@ -114,7 +114,7 @@ public class ContactsDatabaseHelper extends SQLiteOpenHelper {
      *   700-799 Jelly Bean
      * </pre>
      */
-    static final int DATABASE_VERSION = 711;
+    static final int DATABASE_VERSION = 710;
 
     private static final String DATABASE_NAME = "contacts2.db";
     private static final String DATABASE_PRESENCE = "presence_db";
@@ -973,9 +973,10 @@ public class ContactsDatabaseHelper extends SQLiteOpenHelper {
                 Contacts.STARRED + " INTEGER NOT NULL DEFAULT 0," +
                 Contacts.HAS_PHONE_NUMBER + " INTEGER NOT NULL DEFAULT 0," +
                 Contacts.LOOKUP_KEY + " TEXT," +
-                ContactsColumns.LAST_STATUS_UPDATE_ID + " INTEGER REFERENCES data(_id)," +
-                Contacts.CONTACT_LAST_UPDATED_TIMESTAMP + " INTEGER," +
+
+                ContactsColumns.LAST_STATUS_UPDATE_ID + " INTEGER REFERENCES data(_id), " +
                 Contacts.CUSTOM_VIBRATION + " TEXT" +
+                Contacts.CONTACT_LAST_UPDATED_TIMESTAMP + " INTEGER" +
         ");");
 
         ContactsTableUtil.createIndexes(db);
@@ -2462,10 +2463,16 @@ public class ContactsDatabaseHelper extends SQLiteOpenHelper {
         }
 
         if (oldVersion < 706) {
+            upgradeToVersion706(db);
+            upgradeViewsAndTriggers = true; 
+            oldVersion = 706;
+        }
+
+        if (oldVersion < 707) {
             // Prior to this version, we didn't rebuild the stats table after drop operations,
             // which resulted in losing some of the rows from the stats table.
             rebuildSqliteStats = true;
-            oldVersion = 706;
+            oldVersion = 707;
         }
 
         if (oldVersion < 707) {
@@ -2491,12 +2498,6 @@ public class ContactsDatabaseHelper extends SQLiteOpenHelper {
             upgradeToVersion710(db);
             upgradeViewsAndTriggers = true;
             oldVersion = 710;
-        }
-
-        if (oldVersion < 711) {
-            upgradeToVersion711(db);
-            upgradeViewsAndTriggers = true;
-            oldVersion = 711;
         }
 
         if (upgradeViewsAndTriggers) {
@@ -3950,6 +3951,24 @@ public class ContactsDatabaseHelper extends SQLiteOpenHelper {
         }
     }
 
+    /**
+     * AOKP - add custom vibration columns
+     */
+    private void upgradeToVersion706(SQLiteDatabase db) {
+        db.execSQL("ALTER TABLE contacts ADD custom_vibration TEXT DEFAULT NULL;");
+        db.execSQL("ALTER TABLE raw_contacts ADD custom_vibration TEXT DEFAULT NULL;");
+        
+        db.execSQL(
+                "UPDATE " + Tables.CONTACTS +
+                "   SET " + Contacts.CUSTOM_VIBRATION + "=NULL" +
+                " WHERE " + Contacts._ID + " NOT NULL");
+        
+        db.execSQL(
+                "UPDATE " + Tables.RAW_CONTACTS +
+                "   SET " + RawContacts.CUSTOM_VIBRATION + "=NULL" +
+                " WHERE " + RawContacts._ID + " NOT NULL");
+    }
+
     private void upgradeToVersion707(SQLiteDatabase db) {
         db.execSQL("ALTER TABLE " + Tables.RAW_CONTACTS
                 + " ADD " + RawContactsColumns.PHONEBOOK_LABEL_PRIMARY + " TEXT;");
@@ -3982,24 +4001,6 @@ public class ContactsDatabaseHelper extends SQLiteOpenHelper {
 
         db.execSQL("CREATE INDEX deleted_contacts_contact_deleted_timestamp_index "
                 + "ON deleted_contacts(contact_deleted_timestamp)");
-    }
-
-    /**
-     * AOKP - add custom vibration columns
-     */
-    private void upgradeToVersion711(SQLiteDatabase db) {
-        db.execSQL("ALTER TABLE contacts ADD custom_vibration TEXT DEFAULT NULL;");
-        db.execSQL("ALTER TABLE raw_contacts ADD custom_vibration TEXT DEFAULT NULL;");
-        
-        db.execSQL(
-                "UPDATE " + Tables.CONTACTS +
-                "   SET " + Contacts.CUSTOM_VIBRATION + "=NULL" +
-                " WHERE " + Contacts._ID + " NOT NULL");
-        
-        db.execSQL(
-                "UPDATE " + Tables.RAW_CONTACTS +
-                "   SET " + RawContacts.CUSTOM_VIBRATION + "=NULL" +
-                " WHERE " + RawContacts._ID + " NOT NULL");
     }
 
     public String extractHandleFromEmailAddress(String email) {
